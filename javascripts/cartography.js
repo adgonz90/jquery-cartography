@@ -121,11 +121,22 @@
             }
             
             geocoder.geocode(request, function(result, status) {
-                if (typeof location.onSuccess === "function"
-                    && status === google.maps.GeocoderStatus.OK) {
-                    location.onSuccess(result, status);
-                } else if (typeof location.onFailure === "function") {
-                    location.onFailure(result, status);
+                if (status === google.maps.GeocoderStatus.OK) {
+                    if (typeof location.onSuccess === "function") {
+                        location.onSuccess(result, status);
+                    }
+                    else {
+                        $this.trigger("geocode_success", {
+                            results: result,
+                            status: status
+                        });
+                    }
+                }
+                else if (typeof location.onFailure === "function") {
+                    location.onFailure(status);
+                }
+                else {
+                    $this.trigger("geocode_failure", status);
                 }
             });
         }
@@ -155,7 +166,7 @@
     };
     
     // Geocodes given location.
-    $.cartography.geocode = function(context, location, on_success, on_error) {
+    $.cartography.geocode = function(context, location) {
         // Wrap nodes or its selector string in a jQuery object.
         if (typeof context === "string" || context.nodeType) {
             context = $(context);
@@ -163,7 +174,11 @@
         
         // If jQuery, call the Cartography's geocode() method.
         if (context.selector !== undefined) {
-            context.cartography("geocode", location, on_success, on_error);
+            context.cartography("geocode", location);
+        }
+        // Otherwise, notify of error.
+        else {
+            $.error("Cannot determine context to geocode in.");
         }
     };
     
