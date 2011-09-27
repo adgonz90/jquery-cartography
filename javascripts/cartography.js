@@ -121,11 +121,22 @@
             }
             
             geocoder.geocode(request, function(result, status) {
-                if (typeof location.onSuccess === "function"
-                    && status === google.maps.GeocoderStatus.OK) {
-                    location.onSuccess(result, status);
-                } else if (typeof location.onFailure === "function") {
-                    location.onFailure(result, status);
+                if (status === google.maps.GeocoderStatus.OK) {
+                    if (typeof location.onSuccess === "function") {
+                        location.onSuccess(result, status);
+                    }
+                    else {
+                        $this.trigger("geocode_success", {
+                            results: result,
+                            status: status
+                        });
+                    }
+                }
+                else if (typeof location.onFailure === "function") {
+                    location.onFailure(status);
+                }
+                else {
+                    $this.trigger("geocode_failure", status);
                 }
             });
         }
