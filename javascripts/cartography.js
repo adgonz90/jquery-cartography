@@ -93,6 +93,14 @@
             DisplayMap();
         }
         
+        // Determine whether to geocode.
+        if (options.geocode.length) {
+            // Geocode each location.
+            $.each(options.geocode, function(i, location) {
+                this.geocode(location);
+            });
+        }
+        
         // Displays map within sent node.
         function DisplayMap() {
             var center = new google.maps.LatLng(options.center.latitude, options.center.longitude),
@@ -126,7 +134,7 @@
                         location.onSuccess(result, status);
                     }
                     else {
-                        $this.trigger("geocode_success", {
+                        $this.trigger($.cartography.events.SUCCESS, {
                             results: result,
                             status: status
                         });
@@ -136,7 +144,7 @@
                     location.onFailure(status);
                 }
                 else {
-                    $this.trigger("geocode_failure", status);
+                    $this.trigger($.cartography.events.FAILURE, status);
                 }
             });
         }
@@ -157,6 +165,15 @@
     
     // Create namespace in jQuery.
     $.cartography = $.cartography || {};
+    
+    // List supported cartography events.
+    $.cartography.events = {
+        // Geocoding-related events.
+        Geocode: {
+            FAILURE: "geocode_failure",
+            SUCCESS: "geocode_success"
+        }
+    };
     
     // List supported map types.
     $.cartography.MapType = {
@@ -207,6 +224,8 @@
     
     // Expose default values.
     $.fn.cartography.defaults = {
+        // List of objects to geocode at startup.
+        geocode:    [],
         // Indicates whether to geolocate upon initialization.
         geolocate:  false,
         // Indicates whether to display a map.
