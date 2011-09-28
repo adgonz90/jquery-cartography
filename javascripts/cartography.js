@@ -260,6 +260,8 @@
     
     // Expose default values.
     $.fn.cartography.defaults = {
+        // Initial center of map.
+        center:     { latitude: 0, longitude: 0 },
         // List of objects to geocode at startup.
         geocode:    [],
         // Indicates whether to geolocate upon initialization.
