@@ -100,6 +100,7 @@
         this.destroy = Destroy;
         this.geocode = Geocode;
         this.mark = Mark;
+        this.unmark = Unmark;
         
         // --- //
         
@@ -163,6 +164,11 @@
         // Geocodes with Google Maps API.
         function Geocode(location) {
             var request = {};
+            
+            // Transform a string sent as parameter to expected key.
+            if (location.parameter) {
+                location.address = location.parameter;
+            }
             
             // Determine whether given coordinate to reverse geocode.
             if (location.latitude && location.longitude) {
@@ -259,6 +265,26 @@
                 $.error("No location given to mark.");
             }
         }
+        
+        // Removes a marker from map.
+        function Unmark(marker) {
+            var id = marker.parameter || {};
+            
+            // Ensure map is loaded.
+            map || $.error("Map is not loaded.");
+            
+            // Iterate through array if necessary.
+            if (id.length) {
+                $.each(id, function(i) {
+                    Unmark(id[i]);
+                });
+            }
+            // Otherwise, delete marker.
+            if (markers[id] && id !== "anonymous") {
+                markers[id].setMap(null);
+                delete markers[id];
+            }
+        }
     }
     
     // Create namespace in jQuery.
@@ -303,7 +329,7 @@
         
         // Merge method name and its options.
         if (typeof name === "string") {
-            opts = $.extend({}, { method: name }, options);
+            opts = $.extend({}, { method: name }, typeof options === "string" ? { parameter: options } : options);
         }
         // Otherwise, merge plugin options with defaults.
         else {
