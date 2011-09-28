@@ -15,35 +15,32 @@ The following are a list of options that may be used to further configure *jQuer
 ## center
 
 *Accepts:* object
-*Default:* undefined
+*Default:* `{ latitude: 0, longitude: 0 }` (equator)
 
 The latitude and longitude coordinate to center map on.
-
-### Notice: `center` is *required* if using Google Maps.
 
 ## geolocate
 
 *Accepts:* boolean
-*Default:* false
+*Default:* `false`
 
 If true, attempts to geolocate user on HTML5-capable web browsers.
 
 ## map
 
 *Accepts:* boolean
-*Default:* true
+*Default:* `true`
 
 If true, displays a map canvas within nodes.
 
 ## provider
 
 *Accepts:* string
-*Default:* "Google"
+*Default:* `"Google"`
 
 Identifies the provider to use for GIS functionality.
 
 Presently, the following providers are supported:
-* `"ESRI"`: ArcGIS v2.4
 * `"Google"`: Google Maps v3
 
 ### Notice: ArcGIS depends on Dojo Toolkit.
