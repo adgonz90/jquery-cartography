@@ -36,38 +36,6 @@
             }
         };
     
-    function Cartography(options) {
-        var method = options.method,
-            provider = options.provider,
-            instance;
-    
-        // Create instance of provider.
-        if (typeof method === "string") {
-            instance = $(this).data(ns);
-            
-            if (!instance || !instance.isCartography) {
-                $.error("jQuery Cartography has not been initialized.");
-            }
-            else if (typeof instance[method] === "function") {
-                return instance[method].call(this, options);
-            }
-            else {
-                $.error("Requested method not supported by jQuery Cartography.");
-            }
-        }
-        else if (typeof Provider[provider] === "function") {
-            if (!Provider[provider].prototype.isCartography) {
-                Provider[provider].prototype = Provider();
-            }
-            
-            $(this).data(ns, new Provider[provider](options, this));
-        }
-        // Otherwise, notify of invalid provider.
-        else {
-            $.error("Unrecognized jQuery Cartography provider.");
-        }
-    }
-    
     function Provider() {
         return {
             geocode: function() {
@@ -284,6 +252,38 @@
                 markers[id].setMap(null);
                 delete markers[id];
             }
+        }
+    }
+    
+    function Cartography(options) {
+        var method = options.method,
+            provider = options.provider,
+            instance;
+    
+        // Create instance of provider.
+        if (typeof method === "string") {
+            instance = $(this).data(ns);
+            
+            if (!instance || !instance.isCartography) {
+                $.error("jQuery Cartography has not been initialized.");
+            }
+            else if (typeof instance[method] === "function") {
+                return instance[method].call(this, options);
+            }
+            else {
+                $.error("Requested method not supported by jQuery Cartography.");
+            }
+        }
+        else if (typeof Provider[provider] === "function") {
+            if (!Provider[provider].prototype.isCartography) {
+                Provider[provider].prototype = Provider();
+            }
+            
+            $(this).data(ns, new Provider[provider](options, this));
+        }
+        // Otherwise, notify of invalid provider.
+        else {
+            $.error("Unrecognized jQuery Cartography provider.");
         }
     }
     
