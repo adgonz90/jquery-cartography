@@ -82,6 +82,9 @@
     Provider.Google = function(options, node) {
         var $this = $(node),
             geocoder = new google.maps.Geocoder(),
+            markers = {
+                anonymous: []
+            },
             map;
         
         // Name of provider.
@@ -92,6 +95,7 @@
         // Expose methods.
         this.destroy = Destroy;
         this.geocode = Geocode;
+        this.mark = Mark;
         
         // --- //
         
@@ -195,6 +199,48 @@
                     return google.maps.MapTypeId.HYBRID;
                 default:
                     $.error("Unknown map type.");
+            }
+        }
+        
+        // Marks location on map.
+        function Mark(location) {
+            // Ensure map is loaded.
+            map || $.error("Map is not loaded.");
+            
+            // Determine whether given a coordinate.
+            if (location.latitude && location.longitude) {
+                var marker = new google.maps.Marker({
+                        map: map,
+                        position: new google.maps.LatLng(location.latitude, location.longitude)
+                    });
+                
+                if (location.id !== undefined) {
+                    markers[location.id] = marker;
+                }
+                else {
+                    markers.anonymous.push(marker);
+                }
+            }
+            // Or if given an address.
+            else if (location.address) {
+                // Geocode address first, then mark its location.
+                Geocode($.extend({}, location, {
+                    onSuccess: function(value) {
+                        var result = value.results[0].geometry;
+                        
+                        Mark($.extend({}, location, {
+                            latitude: result.location.lat(),
+                            longitude: result.location.lng()
+                        }));
+                    },
+                    onFailure: function() {
+                        $.error("Failed to mark given address.");
+                    }
+                }));
+            }
+            // Otherwise, raise error.
+            else {
+                $.error("No location given to mark.");
             }
         }
     }
