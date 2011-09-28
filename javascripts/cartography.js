@@ -29,6 +29,10 @@
             Map: {
                 LOADING: [ns, "map_loading"].join("_"),
                 LOADED: [ns, "map_loaded"].join("_")
+            },
+            Mark: {
+                BEGIN: [ns, "mark_begin"].join("_"),
+                END: [ns, "mark_end"].join("_")
             }
         };
     
@@ -113,6 +117,18 @@
         // Bind to notifications to trigger events once map has loaded.
         $this.bind([events.Map.LOADED, ns].join("."), function() {
             $this.trigger(events.Geocode.BEGIN);
+            $this.trigger(events.Mark.BEGIN);
+        });
+        
+        // Bind to notifications to begin marking map.
+        $this.bind([events.Mark.BEGIN, ns].join("."), function() {
+            // Mark map if necessary.
+            if (options.markers.length) {
+                // Mark each location.
+                $.each(options.markers, function(i, location) {
+                    Mark(location);
+                });
+            }
         });
         
         // Display map if necessary.
