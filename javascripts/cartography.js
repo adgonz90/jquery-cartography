@@ -19,12 +19,16 @@
  * -*- mode: JavaScript; indent-tabs-mode: nil; tab-width: 4 -*-    *
  * vim: set autoindent expandtab shiftwidth=4 smartindent tabstop=4 *
  ********************************************************************/
-;(function($) {
+;(function ($) {
     var ns = "cartography",
         events = {
             Geocode: {
                 BEGIN: [ns, "geocode_begin"].join("_"),
                 END: [ns, "geocode_end"].join("_")
+            },
+            Geolocation: {
+                BEGIN: [ns, "geolocate_begin"].join("_"),
+                END: [ns, "geolocate_end"].join("_")
             },
             Map: {
                 LOADING: [ns, "map_loading"].join("_"),
@@ -38,20 +42,48 @@
     
     function Provider() {
         return {
-            geocode: function() {
-                $.error("Provider unable to geocode location.");
+            // Geolocates if web browser if HTML5 complaint.
+            geolocate: function () {
+                var $this = $(this),
+                    failure = function (status) {
+                        var event;
+                        
+                        // Determine error status.
+                        switch (status.code) {
+                            case status.PERMISSION_DENIED:
+                                event = $.cartography.events.Geolocation.DENIED;
+                                break;
+                            case status.POSITION_UNAVAILABLE:
+                                event = $.cartography.events.Geolocation.UNAVAILABLE;
+                                break;
+                            case status.TIMEOUT:
+                                event = $.cartography.events.Geolocation.TIMEOUT;
+                                break;
+                            default:
+                                event = $.cartography.events.Geolocation.UNKNOWN;
+                        }
+                        // Notify of error.
+                        $this.trigger(event, status);
+                    },
+                    success = function (position) {
+                        // Notify of success with user position.
+                        $this.trigger($.cartography.events.Geolocation.SUCCESS, position);
+                    };
+                
+                if (navigator && navigator.geolocation) {
+                    // Attempt to geolocate if HTML5-compliant web browser.
+                    navigator.geolocation.getCurrentPosition(success, failure);
+                } else {
+                    // Otherwise, notify of unsupported web browser.
+                    $this.trigger($.cartography.events.Geolocation.UNSUPPORTED);
+                }
             },
-            isCartography: true,
-            mark: function() {
-                $.error("Provider unable to mark locations on map.");
-            },
-            unmark: function() {
-                $.error("Provider unable to unmark locations on map.");
-            }
+            // Identifies a cartographic provider.
+            isCartography: true
         };
     }
     
-    Provider.Google = function(options, node) {
+    Provider.Google = function (options, node) {
         var $this = $(node),
             geocoder = new google.maps.Geocoder(),
             markers = {
@@ -63,45 +95,6 @@
         this.name = "Google";
         // Version of provider's API.
         this.version = "3";
-        
-        // Expose methods.
-        this.destroy = Destroy;
-        this.geocode = Geocode;
-        this.mark = Mark;
-        this.unmark = Unmark;
-        
-        // --- //
-        
-        // Bind to notifications to begin geocoding.
-        $this.bind([events.Geocode.BEGIN, ns].join("."), function() {
-            // Determine whether to geocode.
-            if (options.geocode.length) {
-                // Geocode each location.
-                $.each(options.geocode, function(i, location) {
-                    Geocode(location);
-                });
-            }
-        });
-        
-        // Bind to notifications to trigger events once map has loaded.
-        $this.bind([events.Map.LOADED, ns].join("."), function() {
-            $this.trigger(events.Geocode.BEGIN);
-            $this.trigger(events.Mark.BEGIN);
-        });
-        
-        // Bind to notifications to begin marking map.
-        $this.bind([events.Mark.BEGIN, ns].join("."), function() {
-            // Mark map if necessary.
-            if (options.markers.length) {
-                // Mark each location.
-                $.each(options.markers, function(i, location) {
-                    Mark(location);
-                });
-            }
-        });
-        
-        // Display map if necessary.
-        options.map && DisplayMap();
         
         // --- //
         
@@ -133,27 +126,25 @@
         function Geocode(location) {
             var request = {};
             
-            // Transform a string sent as parameter to expected key.
             if (location.parameter) {
+                // Transform a string sent as parameter to expected key.
                 location.address = location.parameter;
             }
             
-            // Determine whether given coordinate to reverse geocode.
             if (location.latitude && location.longitude) {
+                // Determine whether given coordinate to reverse geocode.
                 request.location = new google.maps.LatLng(location.latitude,
                                                           location.longitude);
-            }
-            // Or an address to geocode.
-            else if (location.address) {
+            } else if (location.address) {
+                // Or an address to geocode.
                 request.address = location.address;
-            }
-            // Otherwise, throw error.
-            else {
+            } else {
+                // Otherwise, throw error.
                 $.error("No location was given to geocode.");
             }
             
             // Perform geocode request.
-            geocoder.geocode(request, function(result, status) {
+            geocoder.geocode(request, function (result, status) {
                 var results = {
                         id: location.id,
                         status: status
@@ -177,6 +168,11 @@
             });
         }
         
+        // Geolocates user.
+        function Geolocate() {
+            // Overwritten to use jQuery Cartography's built-in geolocation method.
+        }
+        
         // Determines the map type requested.
         function MapType(type) {
             var mapTypes = $.cartography.MapType;
@@ -197,25 +193,24 @@
             // Ensure map is loaded.
             map || $.error("Map is not loaded.");
             
-            // Determine whether given a coordinate.
+            // Determine whether given a coordinate or an address.
             if (location.latitude && location.longitude) {
                 var marker = new google.maps.Marker({
                         map: map,
                         position: new google.maps.LatLng(location.latitude, location.longitude)
                     });
                 
+                // Create a map marker if given a coordinate.
                 if (location.id !== undefined && location.id !== "anonymous") {
                     markers[location.id] = marker;
                 }
                 else {
                     markers.anonymous.push(marker);
                 }
-            }
-            // Or if given an address.
-            else if (location.address) {
+            } else if (location.address) {
                 // Geocode address first, then mark its location.
                 Geocode($.extend({}, location, {
-                    onSuccess: function(value) {
+                    onSuccess: function (value) {
                         var result = value.results[0].geometry;
                         
                         Mark($.extend({}, location, {
@@ -223,13 +218,12 @@
                             longitude: result.location.lng()
                         }));
                     },
-                    onFailure: function() {
+                    onFailure: function () {
                         $.error("Failed to mark given address.");
                     }
                 }));
-            }
-            // Otherwise, raise error.
-            else {
+            } else {
+                // Otherwise, raise error.
                 $.error("No location given to mark.");
             }
         }
@@ -243,7 +237,7 @@
             
             // Iterate through array if necessary.
             if (id.length) {
-                $.each(id, function(i) {
+                $.each(id, function (i) {
                     Unmark(id[i]);
                 });
             }
@@ -253,6 +247,65 @@
                 delete markers[id];
             }
         }
+        
+        // --- //
+        
+        // Expose methods.
+        this.destroy = Destroy;
+        this.geocode = Geocode;
+        this.mark = Mark;
+        this.unmark = Unmark;
+        
+        // Overwrite definition of geolocate.
+        Geolocate = function() {
+            return Provider.Google.prototype.geolocate.call(node);
+        }
+        
+        // --- //
+        
+        // Bind to notifications to begin geocoding.
+        $this.bind([events.Geocode.BEGIN, ns].join("."), function () {
+            // Determine whether to geocode.
+            if (options.geocode.length) {
+                // Geocode each location.
+                $.each(options.geocode, function (i, location) {
+                    Geocode(location);
+                });
+            }
+        });
+        
+        // Bind to notifications to begin geolocating.
+        $this.bind([events.Geolocation.BEGIN, ns].join("."), function () {
+            // Geolocate if necessary.
+            options.geolocate && Geolocate();
+        });
+        
+        // Bind to notifications to trigger events once map has loaded.
+        $this.bind([events.Map.LOADED, ns].join("."), function () {
+            $this.trigger(events.Mark.BEGIN);
+        });
+        
+        // Bind to notifications to begin marking map.
+        $this.bind([events.Mark.BEGIN, ns].join("."), function () {
+            // Mark map if necessary.
+            if (options.markers.length) {
+                // Mark each location.
+                $.each(options.markers, function (i, location) {
+                    Mark(location);
+                });
+            }
+        });
+        
+        // --- //
+        
+        // Display map if necessary.
+        options.map && DisplayMap();
+        
+        // Begin geocoding.
+        $this.trigger(events.Geocode.BEGIN);
+        
+        // Begin geolocation.
+        $this.trigger(events.Geolocation.BEGIN);
     }
     
     function Cartography(options) {
@@ -296,6 +349,15 @@
         Geocode: {
             FAILURE: "geocode_failure",
             SUCCESS: "geocode_success"
+        },
+        // Geolocating-relating events.
+        Geolocation: {
+            DENIED:      "geolocation_denied",
+            UNAVAILABLE: "geolocation_unavailable",
+            UNSUPPORTED: "geolocation_unsupported",
+            SUCCESS:     "geolocation_success",
+            TIMEOUT:     "geolocation_timeout",
+            UNKNOWN:     "geolocation_unknown"
         }
     };
     
@@ -307,7 +369,7 @@
     };
     
     // Geocodes given location.
-    $.cartography.geocode = function(context, location) {
+    $.cartography.geocode = function (context, location) {
         // Wrap nodes or its selector string in a jQuery object.
         if (typeof context === "string" || context.nodeType) {
             context = $(context);
@@ -324,20 +386,20 @@
     };
     
     // Expose jQuery Cartography plugin.
-    $.fn.cartography = function(name, options) {
+    $.fn.cartography = function (method, options) {
         var opts;
         
-        // Merge method name and its options.
-        if (typeof name === "string") {
-            opts = $.extend({}, { method: name }, typeof options === "string" ? { parameter: options } : options);
-        }
-        // Otherwise, merge plugin options with defaults.
-        else {
-            options = name;
+        if (typeof method === "string") {
+            // Merge method name and its parameters.
+            options = typeof options !== "object" ? { parameter: options } : options;
+            opts = $.extend({}, { method: method }, options);
+        } else {
+            // Otherwise, merge plugin options with defaults.
+            options = method;
             opts = $.extend({}, $.fn.cartography.defaults, options);
         }
         
-        return this.each(function() {
+        return this.each(function () {
             // Merge metadata for node.
             var o = $.metadata ? $.extend({}, opts, $.metadata.get(this)) : opts;
             
@@ -364,6 +426,8 @@
         overlays:   [],
         // Name of map provider.
         provider:   "Google",
+        // Default timeout (in milliseconds) for geolocation and geocoding.
+        timeout:    10000,
         // Default zoom level.
         zoom:       1,
         // Range of zooms levels allowed on map.
