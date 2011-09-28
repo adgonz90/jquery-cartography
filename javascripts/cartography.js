@@ -20,13 +20,17 @@
  * vim: set autoindent expandtab shiftwidth=4 smartindent tabstop=4 *
  ********************************************************************/
 ;(function($) {
-    var defaults = {
-        },
-        instances = {
-            providers: {},
-            total: 0
-        },
-        ns = "cartography";
+    var ns = "cartography",
+        events = {
+            Geocode: {
+                BEGIN: [ns, "geocode_begin"].join("_"),
+                END: [ns, "geocode_end"].join("_")
+            },
+            Map: {
+                LOADING: [ns, "map_loading"].join("_"),
+                LOADED: [ns, "map_loaded"].join("_")
+            }
+        };
     
     function Cartography(options) {
         var method = options.method,
@@ -86,19 +90,37 @@
         this.version = "3";
         
         // Expose methods.
+        this.destroy = Destroy;
         this.geocode = Geocode;
         
-        // Determine whether to display map.
-        if (options.map) {
-            DisplayMap();
-        }
+        // --- //
         
-        // Determine whether to geocode.
-        if (options.geocode.length) {
-            // Geocode each location.
-            $.each(options.geocode, function(i, location) {
-                this.geocode(location);
-            });
+        // Bind to notifications to begin geocoding.
+        $this.bind([events.Geocode.BEGIN, ns].join("."), function() {
+            // Determine whether to geocode.
+            if (options.geocode.length) {
+                // Geocode each location.
+                $.each(options.geocode, function(i, location) {
+                    Geocode(location);
+                });
+            }
+        });
+        
+        // Bind to notifications to trigger events once map has loaded.
+        $this.bind([events.Map.LOADED, ns].join("."), function() {
+            $this.trigger(events.Geocode.BEGIN);
+        });
+        
+        // Display map if necessary.
+        options.map && DisplayMap();
+        
+        // --- //
+        
+        // Destroys objects.
+        function Destroy() {
+            $this.unbind(ns);
+            delete geocoder;
+            delete map;
         }
         
         // Displays map within sent node.
@@ -110,41 +132,53 @@
                     zoom: options.zoom
                 };
             
+            // Notify that map is loading.
+            $this.trigger(events.Map.LOADING);
+            
+            // Load map.
             map = new google.maps.Map(node, mapOptions);
+            $this.trigger(events.Map.LOADED);
         }
         
         // Geocodes with Google Maps API.
         function Geocode(location) {
             var request = {};
             
+            // Determine whether given coordinate to reverse geocode.
             if (location.latitude && location.longitude) {
                 request.location = new google.maps.LatLng(location.latitude,
                                                           location.longitude);
             }
+            // Or an address to geocode.
             else if (location.address) {
                 request.address = location.address;
             }
+            // Otherwise, throw error.
             else {
                 $.error("No location was given to geocode.");
             }
             
+            // Perform geocode request.
             geocoder.geocode(request, function(result, status) {
+                var results = {
+                        id: location.id,
+                        status: status
+                    };
+                
                 if (status === google.maps.GeocoderStatus.OK) {
+                    results.results = result;
                     if (typeof location.onSuccess === "function") {
-                        location.onSuccess(result, status);
+                        location.onSuccess(results);
                     }
                     else {
-                        $this.trigger($.cartography.events.SUCCESS, {
-                            results: result,
-                            status: status
-                        });
+                        $this.trigger($.cartography.events.Geocode.SUCCESS, results);
                     }
                 }
                 else if (typeof location.onFailure === "function") {
-                    location.onFailure(status);
+                    location.onFailure(results);
                 }
                 else {
-                    $this.trigger($.cartography.events.FAILURE, status);
+                    $this.trigger($.cartography.events.Geocode.FAILURE, results);
                 }
             });
         }
@@ -159,6 +193,8 @@
                     return google.maps.MapTypeId.SATELLITE;
                 case mapTypes.HYBRID:
                     return google.maps.MapTypeId.HYBRID;
+                default:
+                    $.error("Unknown map type.");
             }
         }
     }
