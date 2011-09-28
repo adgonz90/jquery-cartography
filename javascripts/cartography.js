@@ -29,6 +29,10 @@
             Map: {
                 LOADING: [ns, "map_loading"].join("_"),
                 LOADED: [ns, "map_loaded"].join("_")
+            },
+            Mark: {
+                BEGIN: [ns, "mark_begin"].join("_"),
+                END: [ns, "mark_end"].join("_")
             }
         };
     
@@ -82,6 +86,9 @@
     Provider.Google = function(options, node) {
         var $this = $(node),
             geocoder = new google.maps.Geocoder(),
+            markers = {
+                anonymous: []
+            },
             map;
         
         // Name of provider.
@@ -92,6 +99,8 @@
         // Expose methods.
         this.destroy = Destroy;
         this.geocode = Geocode;
+        this.mark = Mark;
+        this.unmark = Unmark;
         
         // --- //
         
@@ -109,6 +118,18 @@
         // Bind to notifications to trigger events once map has loaded.
         $this.bind([events.Map.LOADED, ns].join("."), function() {
             $this.trigger(events.Geocode.BEGIN);
+            $this.trigger(events.Mark.BEGIN);
+        });
+        
+        // Bind to notifications to begin marking map.
+        $this.bind([events.Mark.BEGIN, ns].join("."), function() {
+            // Mark map if necessary.
+            if (options.markers.length) {
+                // Mark each location.
+                $.each(options.markers, function(i, location) {
+                    Mark(location);
+                });
+            }
         });
         
         // Display map if necessary.
@@ -143,6 +164,11 @@
         // Geocodes with Google Maps API.
         function Geocode(location) {
             var request = {};
+            
+            // Transform a string sent as parameter to expected key.
+            if (location.parameter) {
+                location.address = location.parameter;
+            }
             
             // Determine whether given coordinate to reverse geocode.
             if (location.latitude && location.longitude) {
@@ -197,6 +223,68 @@
                     $.error("Unknown map type.");
             }
         }
+        
+        // Drops a marker on location.
+        function Mark(location) {
+            // Ensure map is loaded.
+            map || $.error("Map is not loaded.");
+            
+            // Determine whether given a coordinate.
+            if (location.latitude && location.longitude) {
+                var marker = new google.maps.Marker({
+                        map: map,
+                        position: new google.maps.LatLng(location.latitude, location.longitude)
+                    });
+                
+                if (location.id !== undefined && location.id !== "anonymous") {
+                    markers[location.id] = marker;
+                }
+                else {
+                    markers.anonymous.push(marker);
+                }
+            }
+            // Or if given an address.
+            else if (location.address) {
+                // Geocode address first, then mark its location.
+                Geocode($.extend({}, location, {
+                    onSuccess: function(value) {
+                        var result = value.results[0].geometry;
+                        
+                        Mark($.extend({}, location, {
+                            latitude: result.location.lat(),
+                            longitude: result.location.lng()
+                        }));
+                    },
+                    onFailure: function() {
+                        $.error("Failed to mark given address.");
+                    }
+                }));
+            }
+            // Otherwise, raise error.
+            else {
+                $.error("No location given to mark.");
+            }
+        }
+        
+        // Removes a marker from map.
+        function Unmark(marker) {
+            var id = marker.parameter || {};
+            
+            // Ensure map is loaded.
+            map || $.error("Map is not loaded.");
+            
+            // Iterate through array if necessary.
+            if (id.length) {
+                $.each(id, function(i) {
+                    Unmark(id[i]);
+                });
+            }
+            // Otherwise, delete marker.
+            if (markers[id] && id !== "anonymous") {
+                markers[id].setMap(null);
+                delete markers[id];
+            }
+        }
     }
     
     // Create namespace in jQuery.
@@ -241,7 +329,7 @@
         
         // Merge method name and its options.
         if (typeof name === "string") {
-            opts = $.extend({}, { method: name }, options);
+            opts = $.extend({}, { method: name }, typeof options === "string" ? { parameter: options } : options);
         }
         // Otherwise, merge plugin options with defaults.
         else {
