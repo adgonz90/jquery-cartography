@@ -218,7 +218,7 @@
             }
         }
         
-        // Marks location on map.
+        // Drops a marker on location.
         function Mark(location) {
             // Ensure map is loaded.
             map || $.error("Map is not loaded.");
@@ -230,7 +230,7 @@
                         position: new google.maps.LatLng(location.latitude, location.longitude)
                     });
                 
-                if (location.id !== undefined) {
+                if (location.id !== undefined && location.id !== "anonymous") {
                     markers[location.id] = marker;
                 }
                 else {
