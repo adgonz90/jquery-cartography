@@ -41,43 +41,49 @@
         };
     
     function Provider() {
+        function Geolocate() {
+            var events = $.cartography.events.Geolocation;
+            
+            function Failure(status) {
+                var e;
+                
+                // Determine error status.
+                switch (status.code) {
+                    case status.PERMISSION_DENIED:
+                        e = events.DENIED;
+                        break;
+                    case status.POSITION_UNAVAILABLE:
+                        e = events.UNAVAILABLE;
+                        break;
+                    case status.TIMEOUT:
+                        e = events.TIMEOUT;
+                        break;
+                    default:
+                        e = events.UNKNOWN;
+                }
+                
+                // Notify of error.
+                $(this).trigger(e, status);
+            }
+            
+            function Success(position) {
+                // Notify of success with user position.
+                $(this).trigger(events.SUCCESS, position);
+            }
+            
+            if (navigator && navigator.geolocation) {
+                // Attempt to geolocate if HTML5-compliant web browser.
+                navigator.geolocation.getCurrentPosition($.proxy(Success, this),
+                                                         $.proxy(Failure, this));
+            } else {
+                // Otherwise, notify of unsupported web browser.
+                $(this).trigger(events.UNSUPPORTED);
+            }
+        }
+        
         return {
             // Geolocates if web browser if HTML5 complaint.
-            geolocate: function () {
-                var $this = $(this),
-                    failure = function (status) {
-                        var event;
-                        
-                        // Determine error status.
-                        switch (status.code) {
-                            case status.PERMISSION_DENIED:
-                                event = $.cartography.events.Geolocation.DENIED;
-                                break;
-                            case status.POSITION_UNAVAILABLE:
-                                event = $.cartography.events.Geolocation.UNAVAILABLE;
-                                break;
-                            case status.TIMEOUT:
-                                event = $.cartography.events.Geolocation.TIMEOUT;
-                                break;
-                            default:
-                                event = $.cartography.events.Geolocation.UNKNOWN;
-                        }
-                        // Notify of error.
-                        $this.trigger(event, status);
-                    },
-                    success = function (position) {
-                        // Notify of success with user position.
-                        $this.trigger($.cartography.events.Geolocation.SUCCESS, position);
-                    };
-                
-                if (navigator && navigator.geolocation) {
-                    // Attempt to geolocate if HTML5-compliant web browser.
-                    navigator.geolocation.getCurrentPosition(success, failure);
-                } else {
-                    // Otherwise, notify of unsupported web browser.
-                    $this.trigger($.cartography.events.Geolocation.UNSUPPORTED);
-                }
-            },
+            geolocate: Geolocate,
             // Identifies a cartographic provider.
             isCartography: true
         };
@@ -257,9 +263,7 @@
         this.unmark = Unmark;
         
         // Overwrite definition of geolocate.
-        Geolocate = function() {
-            return Provider.Google.prototype.geolocate.call(node);
-        }
+        Geolocate = $.proxy(this.geolocate, node);
         
         // --- //
         
