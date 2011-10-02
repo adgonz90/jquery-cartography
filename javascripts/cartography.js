@@ -90,12 +90,13 @@
     }
     
     Provider.Google = function (options, node) {
-        var $this = $(node),
-            geocoder = new google.maps.Geocoder(),
-            markers = {
+        var $this = $(node),                        // Create a jQuery wrapper for node...
+            self = this,                            // ...reference to instance...
+            geocoder = new google.maps.Geocoder(),  // ...instance to geocoder...
+            markers = {                             // ...list of markers on map...
                 anonymous: []
             },
-            map;
+            map;                                    // ...and another for map.
         
         // Name of provider.
         this.name = "Google";
