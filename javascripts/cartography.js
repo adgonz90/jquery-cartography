@@ -41,55 +41,62 @@
         };
     
     function Provider() {
+        function Geolocate() {
+            var events = $.cartography.events.Geolocation;
+            
+            function Failure(status) {
+                var e;
+                
+                // Determine error status.
+                switch (status.code) {
+                    case status.PERMISSION_DENIED:
+                        e = events.DENIED;
+                        break;
+                    case status.POSITION_UNAVAILABLE:
+                        e = events.UNAVAILABLE;
+                        break;
+                    case status.TIMEOUT:
+                        e = events.TIMEOUT;
+                        break;
+                    default:
+                        e = events.UNKNOWN;
+                }
+                
+                // Notify of error.
+                $(this).trigger(e, status);
+            }
+            
+            function Success(position) {
+                // Notify of success with user position.
+                $(this).trigger(events.SUCCESS, position);
+            }
+            
+            if (navigator && navigator.geolocation) {
+                // Attempt to geolocate if HTML5-compliant web browser.
+                navigator.geolocation.getCurrentPosition($.proxy(Success, this),
+                                                         $.proxy(Failure, this));
+            } else {
+                // Otherwise, notify of unsupported web browser.
+                $(this).trigger(events.UNSUPPORTED);
+            }
+        }
+        
         return {
             // Geolocates if web browser if HTML5 complaint.
-            geolocate: function () {
-                var $this = $(this),
-                    failure = function (status) {
-                        var event;
-                        
-                        // Determine error status.
-                        switch (status.code) {
-                            case status.PERMISSION_DENIED:
-                                event = $.cartography.events.Geolocation.DENIED;
-                                break;
-                            case status.POSITION_UNAVAILABLE:
-                                event = $.cartography.events.Geolocation.UNAVAILABLE;
-                                break;
-                            case status.TIMEOUT:
-                                event = $.cartography.events.Geolocation.TIMEOUT;
-                                break;
-                            default:
-                                event = $.cartography.events.Geolocation.UNKNOWN;
-                        }
-                        // Notify of error.
-                        $this.trigger(event, status);
-                    },
-                    success = function (position) {
-                        // Notify of success with user position.
-                        $this.trigger($.cartography.events.Geolocation.SUCCESS, position);
-                    };
-                
-                if (navigator && navigator.geolocation) {
-                    // Attempt to geolocate if HTML5-compliant web browser.
-                    navigator.geolocation.getCurrentPosition(success, failure);
-                } else {
-                    // Otherwise, notify of unsupported web browser.
-                    $this.trigger($.cartography.events.Geolocation.UNSUPPORTED);
-                }
-            },
+            geolocate: Geolocate,
             // Identifies a cartographic provider.
             isCartography: true
         };
     }
     
     Provider.Google = function (options, node) {
-        var $this = $(node),
-            geocoder = new google.maps.Geocoder(),
-            markers = {
+        var $this = $(node),                        // Create a jQuery wrapper for node...
+            self = this,                            // ...reference to instance...
+            geocoder = new google.maps.Geocoder(),  // ...instance to geocoder...
+            markers = {                             // ...list of markers on map...
                 anonymous: []
             },
-            map;
+            map;                                    // ...and another for map.
         
         // Name of provider.
         this.name = "Google";
@@ -154,15 +161,12 @@
                     results.results = result;
                     if (typeof location.onSuccess === "function") {
                         location.onSuccess(results);
-                    }
-                    else {
+                    } else {
                         $this.trigger($.cartography.events.Geocode.SUCCESS, results);
                     }
-                }
-                else if (typeof location.onFailure === "function") {
+                } else if (typeof location.onFailure === "function") {
                     location.onFailure(results);
-                }
-                else {
+                } else {
                     $this.trigger($.cartography.events.Geocode.FAILURE, results);
                 }
             });
@@ -203,8 +207,7 @@
                 // Create a map marker if given a coordinate.
                 if (location.id !== undefined && location.id !== "anonymous") {
                     markers[location.id] = marker;
-                }
-                else {
+                } else {
                     markers.anonymous.push(marker);
                 }
             } else if (location.address) {
@@ -257,9 +260,7 @@
         this.unmark = Unmark;
         
         // Overwrite definition of geolocate.
-        Geolocate = function() {
-            return Provider.Google.prototype.geolocate.call(node);
-        }
+        Geolocate = $.proxy(this.geolocate, node);
         
         // --- //
         
@@ -312,30 +313,29 @@
         var method = options.method,
             provider = options.provider,
             instance;
-    
-        // Create instance of provider.
+        
+        // Determine what operation to perform.
         if (typeof method === "string") {
+            // Get instance to provider.
             instance = $(this).data(ns);
             
+            // Call provider's method.
             if (!instance || !instance.isCartography) {
                 $.error("jQuery Cartography has not been initialized.");
-            }
-            else if (typeof instance[method] === "function") {
+            } else if (typeof instance[method] === "function") {
                 return instance[method].call(this, options);
-            }
-            else {
+            } else {
                 $.error("Requested method not supported by jQuery Cartography.");
             }
-        }
-        else if (typeof Provider[provider] === "function") {
+        } else if (typeof Provider[provider] === "function") {
+            // Create instance of provider.
             if (!Provider[provider].prototype.isCartography) {
                 Provider[provider].prototype = Provider();
             }
             
             $(this).data(ns, new Provider[provider](options, this));
-        }
-        // Otherwise, notify of invalid provider.
-        else {
+        } else {
+            // Otherwise, notify of invalid provider.
             $.error("Unrecognized jQuery Cartography provider.");
         }
     }
@@ -375,12 +375,12 @@
             context = $(context);
         }
         
-        // If jQuery, call the Cartography's geocode() method.
+        // Ensure context is jQuery.
         if (context.selector !== undefined) {
+            // And then geocode.
             context.cartography("geocode", location);
-        }
-        // Otherwise, notify of error.
-        else {
+        } else {
+            // Otherwise, notify of error.
             $.error("Cannot determine context to geocode in.");
         }
     };
