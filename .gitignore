@@ -1,0 +1,5 @@
+# Ignore file metadata.
+._*
+.DS_Store
+desktop.ini
+thumbs.db
