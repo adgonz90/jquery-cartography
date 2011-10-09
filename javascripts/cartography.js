@@ -190,12 +190,6 @@
             });
         }
         
-        // Geolocates user.
-        function Geolocate() {
-            // Overwritten to use jQuery Cartography's built-in geolocation
-            // method.
-        }
-        
         // Drops a marker on location.
         function Mark(location) {
             // Ensure map is loaded.
@@ -265,11 +259,9 @@
         // Expose methods.
         this.destroy = Destroy;
         this.geocode = Geocode;
+        this.geolocate = $.proxy(Provider.Google.prototype.geolocate, node);
         this.mark = Mark;
         this.unmark = Unmark;
-        
-        // Overwrite definition of geolocate.
-        Geolocate = $.proxy(this.geolocate, node);
         
         // --- //
         
