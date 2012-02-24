@@ -78,9 +78,11 @@
             
             if (navigator && navigator.geolocation) {
                 // Attempt to geolocate if HTML5-compliant web browser.
+				var options = { maximumAge: 60000, timeout: 30000, enableHighAccuracy: true };
                 geolocation = navigator.geolocation;
                 geolocation.getCurrentPosition($.proxy(Success, this),
-                                               $.proxy(Failure, this));
+                                               $.proxy(Failure, this),
+											   options);
             } else {
                 // Otherwise, notify of unsupported web browser.
                 $(this).trigger(events.UNSUPPORTED);
